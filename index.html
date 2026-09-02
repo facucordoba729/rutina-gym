@@ -250,11 +250,12 @@ function todayISO(){
   return new Date().toISOString().slice(0,10);
 }
 
-// Progresión simple: si esa serie llegó al mínimo de reps pedido, sube ~2.5%;
-// si no, repite el mismo peso. Se calcula serie por serie, no por ejercicio.
+// Progresión simple: si esa serie llegó al mínimo de reps pedido, sube un
+// disco estándar (+2.5 kg); si no, repite el mismo peso. Serie por serie.
 function suggestedSets(last, ex){
   if(!last || !last.sets || !last.sets.length) return null;
   const minTargetReps = parseInt(ex.reps.split('–')[0], 10);
+  const PLATE_JUMP = 2.5;
   return last.sets.map(s => {
     const w = parseFloat(s.weight);
     if(isNaN(w)) return null;
@@ -262,10 +263,7 @@ function suggestedSets(last, ex){
     if(isNaN(reps) || reps < minTargetReps){
       return { weight: w, reps: s.reps, reason: 'repetir' };
     }
-    const raw = w * 1.025;
-    const rounded = Math.round(raw / 0.5) * 0.5;
-    const bump = rounded > w ? rounded : w + 1;
-    return { weight: bump, reps: s.reps, reason: 'subir' };
+    return { weight: w + PLATE_JUMP, reps: s.reps, reason: 'subir' };
   });
 }
 
