@@ -250,17 +250,23 @@ function todayISO(){
   return new Date().toISOString().slice(0,10);
 }
 
-// Progresión simple: si completó todas las series en el rango de reps pedido,
-// sube el peso ~2.5%; si no, repite el mismo peso.
-function suggestedWeight(last){
-  if(!last) return null;
-  const w = parseFloat(last.weight);
-  if(isNaN(w)) return null;
-  if(last.metTarget === false) return { weight: w, reason: 'repetir' };
-  const raw = w * 1.025;
-  const rounded = Math.round(raw / 0.5) * 0.5; // redondea a 0.5 kg
-  const bump = rounded > w ? rounded : w + 1; // asegura al menos +1kg si el redondeo no movió nada
-  return { weight: bump, reason: 'subir' };
+// Progresión simple: si esa serie llegó al mínimo de reps pedido, sube ~2.5%;
+// si no, repite el mismo peso. Se calcula serie por serie, no por ejercicio.
+function suggestedSets(last, ex){
+  if(!last || !last.sets || !last.sets.length) return null;
+  const minTargetReps = parseInt(ex.reps.split('–')[0], 10);
+  return last.sets.map(s => {
+    const w = parseFloat(s.weight);
+    if(isNaN(w)) return null;
+    const reps = parseInt(s.reps, 10);
+    if(isNaN(reps) || reps < minTargetReps){
+      return { weight: w, reps: s.reps, reason: 'repetir' };
+    }
+    const raw = w * 1.025;
+    const rounded = Math.round(raw / 0.5) * 0.5;
+    const bump = rounded > w ? rounded : w + 1;
+    return { weight: bump, reps: s.reps, reason: 'subir' };
+  });
 }
 
 function renderNav(){
@@ -287,14 +293,13 @@ function renderDay(){
     card.className = 'exercise';
 
     const last = lastWeights[ex.id];
-    const sug = suggestedWeight(last);
+    const sug = suggestedSets(last, ex);
     let lastText;
-    if(!last){
+    if(!last || !last.sets){
       lastText = 'Sin registros previos — arrancá liviano y ajustá según la técnica';
-    } else if(sug && sug.reason === 'subir'){
-      lastText = `Última vez: ${last.weight} kg × ${last.reps} · cumpliste el objetivo → probá ${sug.weight} kg hoy`;
     } else {
-      lastText = `Última vez: ${last.weight} kg × ${last.reps} · no llegaste al objetivo → repetí ${sug ? sug.weight : last.weight} kg`;
+      const resumen = last.sets.map(s => `${s.weight}×${s.reps}`).join(', ');
+      lastText = `Última vez: ${resumen}`;
     }
 
     card.innerHTML = `
@@ -307,15 +312,17 @@ function renderDay(){
       <div class="sets" data-ex="${ex.id}"></div>
     `;
 
-    const suggestedPlaceholder = sug ? sug.weight : '';
     const setsWrap = card.querySelector('.sets');
     for(let i=0; i<ex.sets; i++){
       const row = document.createElement('div');
       row.className = 'set-row';
+      const s = sug && sug[i] ? sug[i] : null;
+      const wPlaceholder = s ? s.weight : '';
+      const rPlaceholder = s ? s.reps : ex.reps.split('–')[0];
       row.innerHTML = `
         <span class="set-num">${i+1}</span>
-        <input type="number" inputmode="decimal" placeholder="${suggestedPlaceholder}" data-field="weight" data-i="${i}">
-        <input type="number" inputmode="numeric" placeholder="${last ? last.reps : ex.reps.split('–')[0]}" data-field="reps" data-i="${i}">
+        <input type="number" inputmode="decimal" placeholder="${wPlaceholder}" data-field="weight" data-i="${i}">
+        <input type="number" inputmode="numeric" placeholder="${rPlaceholder}" data-field="reps" data-i="${i}">
         <div class="check" data-i="${i}">✓</div>
       `;
       const [wIn, rIn] = row.querySelectorAll('input');
@@ -404,16 +411,9 @@ async function saveWorkout(){
     const sets = entryState[ex.id].filter(s => s.weight !== '' && s.reps !== '');
     if(sets.length === 0) return;
     anySaved = true;
-    const top = sets.reduce((a,b) => (parseFloat(b.weight) > parseFloat(a.weight) ? b : a));
-    const minTargetReps = parseInt(ex.reps.split('–')[0], 10);
-    const metTarget = sets.length >= ex.sets && sets.every(s => parseInt(s.reps, 10) >= minTargetReps);
     lastWeights[ex.id] = {
-      weight: top.weight,
-      reps: top.reps,
-      date,
-      setsCompleted: sets.length,
-      targetSets: ex.sets,
-      metTarget
+      sets: sets.map(s => ({ weight: s.weight, reps: s.reps })),
+      date
     };
   });
 
