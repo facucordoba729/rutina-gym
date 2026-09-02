@@ -88,6 +88,12 @@
     color: var(--accent);
     margin-bottom: 8px;
   }
+  .suggestion{
+    font-size: 12px;
+    color: var(--text-dim);
+    margin-bottom: 10px;
+    font-style: italic;
+  }
   .set-row{
     display:grid;
     grid-template-columns: 28px 1fr 1fr 32px;
@@ -292,12 +298,16 @@ function renderDay(){
 
     const last = lastWeights[ex.id];
     const sug = suggestedSets(last, ex);
-    let lastText;
+    let lastText, sugText = '';
     if(!last || !last.sets){
       lastText = 'Sin registros previos — arrancá liviano y ajustá según la técnica';
     } else {
       const resumen = last.sets.map(s => `${s.weight}×${s.reps}`).join(', ');
       lastText = `Última vez: ${resumen}`;
+      if(sug){
+        const sugResumen = sug.map(s => s ? s.weight : '–').join(' · ');
+        sugText = `Sugerido si cumpliste las reps: ${sugResumen} kg`;
+      }
     }
 
     card.innerHTML = `
@@ -306,6 +316,7 @@ function renderDay(){
         <span class="target">${ex.sets} series · ${ex.reps} reps</span>
       </div>
       <div class="last">${lastText}</div>
+      ${sugText ? `<div class="suggestion">${sugText}</div>` : ''}
       <div class="col-labels"><span></span><span>Peso (kg)</span><span>Reps</span><span></span></div>
       <div class="sets" data-ex="${ex.id}"></div>
     `;
@@ -314,9 +325,9 @@ function renderDay(){
     for(let i=0; i<ex.sets; i++){
       const row = document.createElement('div');
       row.className = 'set-row';
-      const s = sug && sug[i] ? sug[i] : null;
-      const wPlaceholder = s ? s.weight : '';
-      const rPlaceholder = s ? s.reps : ex.reps.split('–')[0];
+      const lastSet = last && last.sets && last.sets[i] ? last.sets[i] : null;
+      const wPlaceholder = lastSet ? lastSet.weight : '';
+      const rPlaceholder = lastSet ? lastSet.reps : ex.reps.split('–')[0];
       row.innerHTML = `
         <span class="set-num">${i+1}</span>
         <input type="number" inputmode="decimal" placeholder="${wPlaceholder}" data-field="weight" data-i="${i}">
