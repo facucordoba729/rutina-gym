@@ -1,0 +1,461 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Rutina PPL — Registro de pesos</title>
+<style>
+  :root{
+    --bg: #16181c;
+    --bg-card: #1f2228;
+    --bg-input: #262a31;
+    --line: #33373f;
+    --text: #eef0f2;
+    --text-dim: #9aa1ab;
+    --accent: #ff7a2e;
+    --accent-dim: #4a3524;
+    --good: #4fbf6b;
+  }
+  *{ box-sizing: border-box; }
+  body{
+    margin:0;
+    background:var(--bg);
+    color:var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    padding-bottom: 100px;
+  }
+  header{
+    padding: 22px 18px 14px;
+    border-bottom: 1px solid var(--line);
+  }
+  header h1{
+    font-size: 20px;
+    margin: 0 0 2px;
+    letter-spacing: -0.02em;
+  }
+  header p{
+    margin:0;
+    color: var(--text-dim);
+    font-size: 13px;
+  }
+  nav{
+    display:flex;
+    gap:6px;
+    padding: 12px 14px;
+    overflow-x:auto;
+  }
+  nav button{
+    flex: 1 0 auto;
+    background: var(--bg-card);
+    border: 1px solid var(--line);
+    color: var(--text-dim);
+    padding: 10px 14px;
+    border-radius: 10px;
+    font-size: 14px;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+  nav button.active{
+    background: var(--accent-dim);
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+  main{ padding: 4px 14px 24px; }
+  .exercise{
+    background: var(--bg-card);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 14px 14px 8px;
+    margin-bottom: 12px;
+  }
+  .exercise-head{
+    display:flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-bottom: 10px;
+  }
+  .exercise-head h3{
+    margin:0;
+    font-size: 15px;
+    font-weight: 600;
+  }
+  .target{
+    font-size: 12px;
+    color: var(--text-dim);
+  }
+  .last{
+    font-size: 12px;
+    color: var(--accent);
+    margin-bottom: 8px;
+  }
+  .set-row{
+    display:grid;
+    grid-template-columns: 28px 1fr 1fr 32px;
+    gap: 8px;
+    align-items:center;
+    margin-bottom: 8px;
+  }
+  .set-row .set-num{
+    color: var(--text-dim);
+    font-size: 13px;
+    text-align:center;
+  }
+  .set-row input{
+    background: var(--bg-input);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    color: var(--text);
+    padding: 8px 10px;
+    font-size: 14px;
+    width: 100%;
+  }
+  .set-row input:focus{
+    outline: none;
+    border-color: var(--accent);
+  }
+  .set-row .check{
+    width: 24px;
+    height: 24px;
+    border-radius: 6px;
+    border: 1px solid var(--line);
+    background: var(--bg-input);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-size: 13px;
+    color: transparent;
+  }
+  .set-row .check.done{
+    background: var(--good);
+    border-color: var(--good);
+    color: #0d1f12;
+  }
+  .col-labels{
+    display:grid;
+    grid-template-columns: 28px 1fr 1fr 32px;
+    gap: 8px;
+    font-size: 11px;
+    color: var(--text-dim);
+    margin-bottom: 6px;
+  }
+  footer{
+    position: fixed;
+    bottom: 0; left:0; right:0;
+    padding: 14px;
+    background: linear-gradient(to top, var(--bg) 60%, transparent);
+  }
+  #saveBtn{
+    width:100%;
+    background: var(--accent);
+    color: #1c0f00;
+    border:none;
+    border-radius: 12px;
+    padding: 14px;
+    font-size: 15px;
+    font-weight: 700;
+  }
+  #saveBtn:active{ opacity:0.85; }
+  #toast{
+    position: fixed;
+    bottom: 76px; left: 14px; right:14px;
+    background: var(--good);
+    color: #0d1f12;
+    text-align:center;
+    padding: 10px;
+    border-radius: 10px;
+    font-size: 13px;
+    font-weight: 600;
+    opacity:0;
+    pointer-events:none;
+    transition: opacity 0.25s;
+  }
+  #toast.show{ opacity:1; }
+  .day-note{
+    font-size: 12px;
+    color: var(--text-dim);
+    padding: 0 14px 8px;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Rutina Push / Pull / Legs</h1>
+  <p>4 días · gimnasio completo · objetivo: ganar músculo</p>
+</header>
+
+<nav id="dayNav"></nav>
+<div class="day-note" id="dayNote"></div>
+
+<main id="exerciseList"></main>
+
+<div id="toast"></div>
+<footer>
+  <button id="saveBtn">Guardar entrenamiento de hoy</button>
+</footer>
+
+<script>
+const DAYS = {
+  push: {
+    label: "Push",
+    note: "Pecho, hombro y tríceps",
+    exercises: [
+      { id: "push_press_banca", name: "Press de banca con barra", sets: 3, reps: "6–10" },
+      { id: "push_press_militar_mancuerna", name: "Press militar con mancuernas", sets: 3, reps: "8–12" },
+      { id: "push_press_inclinado_mancuerna", name: "Press inclinado con mancuernas", sets: 3, reps: "8–12" },
+      { id: "push_elevacion_lateral", name: "Elevaciones laterales", sets: 3, reps: "12–15" },
+      { id: "push_triceps_polea", name: "Extensión de tríceps en polea", sets: 3, reps: "10–15" }
+    ]
+  },
+  pull: {
+    label: "Pull",
+    note: "Espalda y bíceps",
+    exercises: [
+      { id: "pull_jalon_pecho", name: "Jalón al pecho en polea", sets: 3, reps: "8–12" },
+      { id: "pull_remo_maquina", name: "Remo en máquina", sets: 3, reps: "10–12" },
+      { id: "pull_curl_barra", name: "Curl de bíceps con barra", sets: 3, reps: "8–12" },
+      { id: "pull_face_pull", name: "Face pull", sets: 3, reps: "12–15" }
+    ]
+  },
+  legs: {
+    label: "Piernas",
+    note: "Cuádriceps, femoral y pantorrillas",
+    exercises: [
+      { id: "legs_sentadilla", name: "Sentadilla con barra", sets: 4, reps: "6–10" },
+      { id: "legs_prensa", name: "Prensa de piernas", sets: 3, reps: "10–12" },
+      { id: "legs_peso_muerto_rumano", name: "Peso muerto rumano", sets: 3, reps: "8–10" },
+      { id: "legs_curl_femoral", name: "Curl femoral en máquina", sets: 3, reps: "10–12" },
+      { id: "legs_gemelos", name: "Elevación de talones", sets: 4, reps: "12–15" }
+    ]
+  },
+  upper: {
+    label: "Upper",
+    note: "Tren superior completo, segunda dosis de la semana",
+    exercises: [
+      { id: "upper_press_inclinado", name: "Press inclinado con mancuernas", sets: 3, reps: "8–12" },
+      { id: "upper_remo_polea", name: "Remo en polea sentado", sets: 3, reps: "8–12" },
+      { id: "upper_press_militar_barra", name: "Press militar con barra", sets: 3, reps: "6–10" },
+      { id: "upper_curl_martillo", name: "Curl martillo", sets: 3, reps: "10–12" },
+      { id: "upper_triceps_frances", name: "Press francés de tríceps", sets: 3, reps: "10–12" }
+    ]
+  }
+};
+
+const DAY_ORDER = ["push", "pull", "legs", "upper"];
+let currentDay = "push";
+let lastWeights = {}; // { exerciseId: { weight, reps, date } }
+let entryState = {}; // in-memory current inputs, reset per day render
+
+function todayISO(){
+  return new Date().toISOString().slice(0,10);
+}
+
+// Progresión simple: si completó todas las series en el rango de reps pedido,
+// sube el peso ~2.5%; si no, repite el mismo peso.
+function suggestedWeight(last){
+  if(!last) return null;
+  const w = parseFloat(last.weight);
+  if(isNaN(w)) return null;
+  if(last.metTarget === false) return { weight: w, reason: 'repetir' };
+  const raw = w * 1.025;
+  const rounded = Math.round(raw / 0.5) * 0.5; // redondea a 0.5 kg
+  const bump = rounded > w ? rounded : w + 1; // asegura al menos +1kg si el redondeo no movió nada
+  return { weight: bump, reason: 'subir' };
+}
+
+function renderNav(){
+  const nav = document.getElementById('dayNav');
+  nav.innerHTML = '';
+  DAY_ORDER.forEach(id => {
+    const btn = document.createElement('button');
+    btn.textContent = DAYS[id].label;
+    btn.className = id === currentDay ? 'active' : '';
+    btn.onclick = () => { currentDay = id; renderNav(); renderDay(); };
+    nav.appendChild(btn);
+  });
+  document.getElementById('dayNote').textContent = DAYS[currentDay].note;
+}
+
+function renderDay(){
+  const list = document.getElementById('exerciseList');
+  list.innerHTML = '';
+  entryState = {};
+  DAYS[currentDay].exercises.forEach(ex => {
+    entryState[ex.id] = Array.from({length: ex.sets}, () => ({ weight: '', reps: '', done: false }));
+
+    const card = document.createElement('div');
+    card.className = 'exercise';
+
+    const last = lastWeights[ex.id];
+    const sug = suggestedWeight(last);
+    let lastText;
+    if(!last){
+      lastText = 'Sin registros previos — arrancá liviano y ajustá según la técnica';
+    } else if(sug && sug.reason === 'subir'){
+      lastText = `Última vez: ${last.weight} kg × ${last.reps} · cumpliste el objetivo → probá ${sug.weight} kg hoy`;
+    } else {
+      lastText = `Última vez: ${last.weight} kg × ${last.reps} · no llegaste al objetivo → repetí ${sug ? sug.weight : last.weight} kg`;
+    }
+
+    card.innerHTML = `
+      <div class="exercise-head">
+        <h3>${ex.name}</h3>
+        <span class="target">${ex.sets} series · ${ex.reps} reps</span>
+      </div>
+      <div class="last">${lastText}</div>
+      <div class="col-labels"><span></span><span>Peso (kg)</span><span>Reps</span><span></span></div>
+      <div class="sets" data-ex="${ex.id}"></div>
+    `;
+
+    const suggestedPlaceholder = sug ? sug.weight : '';
+    const setsWrap = card.querySelector('.sets');
+    for(let i=0; i<ex.sets; i++){
+      const row = document.createElement('div');
+      row.className = 'set-row';
+      row.innerHTML = `
+        <span class="set-num">${i+1}</span>
+        <input type="number" inputmode="decimal" placeholder="${suggestedPlaceholder}" data-field="weight" data-i="${i}">
+        <input type="number" inputmode="numeric" placeholder="${last ? last.reps : ex.reps.split('–')[0]}" data-field="reps" data-i="${i}">
+        <div class="check" data-i="${i}">✓</div>
+      `;
+      const [wIn, rIn] = row.querySelectorAll('input');
+      wIn.oninput = () => entryState[ex.id][i].weight = wIn.value;
+      rIn.oninput = () => entryState[ex.id][i].reps = rIn.value;
+      const check = row.querySelector('.check');
+      check.onclick = () => {
+        entryState[ex.id][i].done = !entryState[ex.id][i].done;
+        check.classList.toggle('done', entryState[ex.id][i].done);
+      };
+      setsWrap.appendChild(row);
+    }
+
+    list.appendChild(card);
+  });
+}
+
+function showToast(msg){
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2200);
+}
+
+const hasCloudStorage = typeof window.storage !== 'undefined' && window.storage && typeof window.storage.set === 'function';
+
+async function storageGet(key){
+  if(hasCloudStorage){
+    try{
+      const res = await window.storage.get(key, false);
+      if(res) return res;
+    }catch(e){ /* cae a local */ }
+  }
+  try{
+    const raw = localStorage.getItem('rutina_' + key);
+    return raw ? { key, value: raw } : null;
+  }catch(e){ return null; }
+}
+
+async function storageSet(key, value){
+  let cloudOk = false;
+  if(hasCloudStorage){
+    try{
+      const res = await window.storage.set(key, value, false);
+      if(res) cloudOk = true;
+    }catch(e){ /* cae a local */ }
+  }
+  try{
+    localStorage.setItem('rutina_' + key, value);
+    return { key, value, cloud: cloudOk, local: true };
+  }catch(e){
+    if(cloudOk) return { key, value, cloud: true, local: false };
+    throw e;
+  }
+}
+
+async function loadLastWeights(){
+  try{
+    const res = await storageGet('last-weights');
+    lastWeights = res && res.value ? JSON.parse(res.value) : {};
+  }catch(e){
+    lastWeights = {};
+  }
+}
+
+async function saveWithRetry(key, value, attempts = 3){
+  let lastErr;
+  for(let i = 0; i < attempts; i++){
+    try{
+      const res = await storageSet(key, value);
+      if(res) return res;
+      lastErr = new Error('sin respuesta del servidor');
+    }catch(e){
+      lastErr = e;
+    }
+    if(i < attempts - 1) await new Promise(r => setTimeout(r, 500 * (i + 1)));
+  }
+  throw lastErr;
+}
+
+async function saveWorkout(){
+  const date = todayISO();
+  let anySaved = false;
+
+  DAYS[currentDay].exercises.forEach(ex => {
+    const sets = entryState[ex.id].filter(s => s.weight !== '' && s.reps !== '');
+    if(sets.length === 0) return;
+    anySaved = true;
+    const top = sets.reduce((a,b) => (parseFloat(b.weight) > parseFloat(a.weight) ? b : a));
+    const minTargetReps = parseInt(ex.reps.split('–')[0], 10);
+    const metTarget = sets.length >= ex.sets && sets.every(s => parseInt(s.reps, 10) >= minTargetReps);
+    lastWeights[ex.id] = {
+      weight: top.weight,
+      reps: top.reps,
+      date,
+      setsCompleted: sets.length,
+      targetSets: ex.sets,
+      metTarget
+    };
+  });
+
+  if(!anySaved){
+    showToast('Cargá al menos un peso antes de guardar');
+    return;
+  }
+
+  try{
+    await saveWithRetry('last-weights', JSON.stringify(lastWeights));
+
+    // append to history log (single key, capped list)
+    let history = [];
+    try{
+      const h = await storageGet('history');
+      history = h && h.value ? JSON.parse(h.value) : [];
+    }catch(e){ history = []; }
+
+    history.push({
+      date,
+      day: currentDay,
+      entries: DAYS[currentDay].exercises
+        .filter(ex => entryState[ex.id].some(s => s.weight !== ''))
+        .map(ex => ({ id: ex.id, name: ex.name, sets: entryState[ex.id].filter(s => s.weight !== '') }))
+    });
+    if(history.length > 200) history = history.slice(history.length - 200);
+    await saveWithRetry('history', JSON.stringify(history));
+
+    showToast('Entrenamiento guardado ✓');
+    renderDay();
+  }catch(e){
+    showToast('No se pudo guardar — tus datos siguen acá, tocá guardar de nuevo');
+  }
+}
+
+document.getElementById('saveBtn').onclick = saveWorkout;
+
+(async function init(){
+  await loadLastWeights();
+  renderNav();
+  renderDay();
+})();
+</script>
+</body>
+</html>
